@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Attendance Program</title>
+		<style>
+		/*Centers items horizontally*/
+		h3 {
+			text-align:center;
+		}
+		
+		/*Centers items horizontally*/
+		#errorMessage {
+			color:red;
+		}
+		
+		/*Centers items vertically*/
+		#formBox{
+			margin:auto;
+			margin-top:20%;
+			text-align:center;
+		}
+
+		</style>
+	</head>
+	<body>
+		<h3 id="errorMessage"></h3>
+		<br />
+		
+		<div id="formBox">
+			<h3>ID Number:</h3>
+			<input type="number" name="ID" id="IDBox" />
+			
+			<div id="buttonContainer">
+				<br />
+				<input type="button" class="button" name="CheckIn" value="Check In" onclick="checkIn()"/>
+				<input type="button" class="button" name="CheckOut" value="Check Out" onclick="checkOut()"/>
+			</div>
+		</div>
+		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script>
+			var SEASON = "preseason"; //COMMENT OUT THIS LINE DURING BUILD SEASON
+			var SEASON_SUFFIX = "Pre"; //COMMENT OUT THIS LINE DURING BUILD SEASON
+			
+			//var SEASON = "buildSeason"; //COMMENT OUT THIS LINE DURING PRESEASON
+			//var SEASON_SUFFIX = "Build"; //COMMENT OUT THIS LINE DURING PRESEASON
+
+			// Initialize Firebase
+			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
+			var config = {
+				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
+				authDomain: "trident-robotics-attendance.firebaseapp.com",
+				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
+				projectId: "trident-robotics-attendance",
+				storageBucket: "trident-robotics-attendance.appspot.com",
+				messagingSenderId: "609506036733"
+			};
+			firebase.initializeApp(config);
+			
+			//Get reference to database
+			var database = firebase.database();
+			
+			//References to endpoints
+			var activeIDRef = database.ref("activeIDs");
+			var groupRef = database.ref("groups/members");
+			var checkedInRef = database.ref("groups/checkedIn/members");
+			var seasonRef = database.ref(SEASON);
+			var recordRef; //After init, recordRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID);
+			var memberRef; //After init, memberRef = database.ref("members/" + ID);
+			var memberGroupRef; //After init, memberGroupRef = database.ref("members/" + ID + "/groups");
+
+			//Declare vars
+			var IDValid;
+			var ID;
+			var checkedIn;
+			var checkingIn;
+			var errorMessage;
+			var signOutMessage;
+			var error;
+			var hours;
+			
+			/** This function is called to check in the user.
+			  */
+			function checkIn()
+			{
+				checkingIn = true;
+				handleRequest();
+			}
+
+			/** This function is called to check out the user.
+			  */
+			function checkOut()
+			{
+				//Perform check before modifying database, exit function if there was an error
+				checkingIn = false;
+				handleRequest();
+			}
+
+			/** Initializes variables
+			  */
+			function init()
+			{
+				error = false;
+				IDValid = false;
+				checkedIn = false;
+				errorMessage = null;
+				signOutMessage = null;
+				hours = 0;
+				
+				//Get the ID from the input box
+			    ID = document.getElementById("IDBox").value;
+
+			    //Init references to endpoints
+			    recordRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID);
+			   	memberRef = database.ref("members/" + ID);
+			   	memberGroupRef = database.ref("members/" + ID + "/groups");
+			}
+
+			/** This function is called to check in the user.
+			  */
+			function handleRequest()
+			{
+				//This initial function runs to initialize variables
+				let initPromise = function()
+				{
+					return new Promise(function (resolve, reject) {
+						init();
+						resolve();
+					});
+				}
+
+				//The initial promise is invoked
+				initPromise()
+				//After the initial promise finishes, validate ID data
+				.then(function(res) 
+				{
+					return validateID();
+				})
+				//After validating the ID, check if the ID exists
+				.then(function(validID)  
+				{
+					//If the ID was invalid from the last step, throw error to stop program
+					if(!validID)
+					{
+						handleError(errorMessage);
+					}
+
+					//Attempt to pull this ID from the active ID list
+					activeIDRef.child(ID).once('value')
+					.then(function(snapshot) //After we retrieve the data from the database, check if an ID was actually retrieved
+					{
+						if(!snapshot.exists()) //ID does not exist
+						{
+							IDValid = false;
+							error = true;
+							errorMessage = "This ID is not in the database yet, please reenter your ID.";
+							return false;
+						}
+
+						return true; //ID exists
+					})
+					//After checking if ID exists, check if the user is already checked in
+					.then(function(IDExists) 
+					{
+						//If the ID didn't exist from the previous step, throw error to stop program
+						if(!IDExists) 
+						{
+							handleError(errorMessage);
+						}
+
+						//Attempt to pull this ID from the checked in list
+						checkedInRef.child(ID).once('value')
+						.then(function(snapshot) //After we retrieve the data from the database, handle the response
+						{
+							//If this ID exists in the checked in list, then they are checked in
+							if(snapshot.exists()){
+								return true;
+							}
+
+							return false; //They are not checked in
+						})
+						//After checking if already in, check if they are performing a duplicate action
+						.then(function(checkedIn)
+						{
+
+							//If they are trying to do a duplicate action, throw error to stop program
+							if((checkedIn && checkingIn) || (!checkedIn && !checkingIn)) 
+							{
+								errorMessage = "You are already checked " + (checkedIn ? "in" : "out");
+								handleError(errorMessage);
+							}
+						})
+						//After verifying that checking in/out will not be redundant, check in or out
+						.then(function(res)
+						{
+							if(checkingIn)
+							{
+								checkInMember();
+							}
+							else
+							{
+								checkoutMember();
+							}
+						});
+					});
+				});
+			}
+			
+			/** Validates the ID number. 
+			  * First checks if ID is six digits long,
+			  * then checks if ID is registered in the database already.
+			  *
+			  * @return true if ID is valid, false if ID is invalid
+			  */
+			function validateID()
+			{
+				//If ID is 6 digits long, it is valid
+				IDValid = (ID > 99999 && ID < 1000000) ? true : false;
+				if(!IDValid)
+				{
+					error = true;
+					errorMessage = "This ID is not valid, your ID must be 6 digits.";
+				}
+				return IDValid;
+			}
+
+			/** Checks if user is currently checked in.
+			  * Assigns variable 'checkedIn' to true if user is checked in
+			  * If user is not checked in, variable 'checkedIn' is not modified
+			  * because it defaults to 'false'.
+			  */
+			function isCheckedIn()
+			{
+				checkedInRef.child(ID).once('value')
+				.then(function(snapshot)
+				{
+					//If this ID exists in the checked in list, then they are checked in
+					if(snapshot.exists()){
+						checkedIn = true;
+					}
+					else
+					{
+						checkedIn = false;
+					}
+				});
+			}
+			
+			/** Checks in a member.
+			  * The member is added to the list of currently checked in members,
+			  * then a record under their ID for this visit is added.
+			  */
+			function checkInMember()
+			{
+				//Get the current time in seconds
+				var timestamp = Math.floor(Date.now() / 1000);
+			
+				//Adds user to the checkedIn list
+				checkedInRef.update(
+				{
+					[ID]: true
+				});
+				
+				//Gives the user the checkedIn property. This step may seem a little redundant,
+				//but this allows us to check if a user is checkedIn by looking at the checkedIn list
+				//or at their account.
+				memberGroupRef.update(
+				{
+					checkedIn: true
+				});
+				
+				//Find out how many days the user has attended robotics. This info is needed to title their in/out record.
+				recordRef.child("daysAttended").once('value').then(function(snapshot)
+				{
+					//If this isn't the first meeting, then a value will be returned
+					if(snapshot.exists())
+					{
+						return snapshot.val() + 1; //Increment the returned value because now they just attended another meeting
+					}
+					
+					return 1; //If it doesn't exist, this is their first meeting
+				})
+				//After finding the amount of days the user has attend, create a record with a title of today's meeting number
+				.then(function(daysAttended)
+				{
+					//Put the users check-in time for today's entry.
+					database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID + "/" + daysAttended.toString()).set(
+					{
+						timeIn: timestamp,
+						timeOut: 0,
+						duration: 0
+					});
+
+					return daysAttended; //Return the amount of days attended to the next function
+				})
+				//After creating entry, update the amount of days that this user has attended robotics
+				.then(function(daysAttendedRef)
+				{
+					//Update their meeting count
+					recordRef.update(
+					{
+						daysAttended: daysAttendedRef
+					});
+					alert("You have been checked in.");
+				});
+			}
+
+			/** Checks out a member.
+			  * First the user is removed from the checkout list and the checkout
+			  * property is removed from the user. Then today's entry in completed and the
+			  * member's new total hours are calculated.
+			  *
+			  */
+			function checkoutMember()
+			{
+				//Get time for checkout in seconds
+				var timestamp = Math.floor(Date.now() / 1000);
+			
+				//Remove user from checkedIn list
+				
+				checkedInRef.child(ID).once('value')
+				.then(function(snapshot)
+				{
+					snapshot.ref.remove(); //If it doesn't exist, this is their first meeting
+				});
+
+				//Gives the user the checkedIn property. This step may seem a little redundant,
+				//but this allows us to check if a user is checkedIn by looking at the checkedIn list
+				//or at their account.
+				memberGroupRef.update(
+				{
+					checkedIn: false
+				});
+
+				//Find out how many days the user has attended robotics. This info is needed to title their in/out record.
+				recordRef.child("daysAttended").once('value')
+				.then(function(snapshot)
+				{
+					//If this isn't the first meeting, then a value will be returned
+					if(snapshot.exists())
+					{
+						return snapshot.val();
+					}
+					return 1; //Assume first meeting if doesn't exist. This should never happen though.
+				})
+				//After finding out days attended, get their check-in time
+				.then(function(daysAttended)
+				{
+					var days = daysAttended;
+					var todayRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID + "/" + days);
+					todayRef.child("timeIn").once('value')
+					//Query for check-in time
+					.then(function(snapshot)
+					{
+						return snapshot.val();
+					})
+					//After getting check-in time, calculate the duration, in seconds, that they were at the meeting
+					.then(function(timeIn)
+					{
+						var duration = timestamp - timeIn;
+
+						//Put the users timeOut and duration in today's entry
+						database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID + "/" + days.toString()).update(
+						{
+							timeOut: timestamp,
+							duration: duration
+						})
+						return duration; //Pass the duration to the next function
+					})
+					//After updating today's record, update the member's total hours
+					.then(function(duration)
+					{
+						//Get their current amount of hours
+						memberRef.child(SEASON + "Hours").once('value')
+						.then(function (snapshot)
+						{
+							if(snapshot.exists())
+							{
+								return snapshot.val(); //If they have an hours entry, pass that to next function
+							}
+							return 0; //Else they have 0 hours
+						})
+						//Then update their hours
+						.then(function (hours)
+						{
+							//convert today's seconds to hours and calculate new total hours
+							duration /= 3600;
+							hours += duration;
+							var key = SEASON + "Hours"
+							
+							//Update hours
+							memberRef.update({
+								[key]: hours
+							});
+							return hours;
+						})
+						//Then get information to determine if the member is on track to finish their goal
+						.then(function (totalHours)
+						{
+							hours = totalHours;
+							//Get the available hours left in this season
+							seasonRef.child("availableHours").once('value')
+							.then(function(snapshot)
+							{
+								//The total possible hours that this member can get is their current hours + remaining hours available
+								var totalPossibleHours = hours + snapshot.val();
+								return totalPossibleHours; //Return their total possible hours to next function
+							})
+							//Then get this member's tier committment
+							.then(function(totalHoursPossible)
+							{
+								memberGroupRef.child("tier").once('value')
+								.then(function(snapshot)
+								{
+									return snapshot.val(); //Return this member's tier commitment
+								})
+								//Then get the required hours for their tier
+								.then(function(tier)
+								{
+									var tierRef = database.ref("groups/tier" + tier.toString());
+									tierRef.child("requiredHours" + SEASON_SUFFIX).once('value')
+									.then(function(snapshot)
+									{
+										//Finally check this member's status; check if their on track to finish
+										checkMemberProgress(totalHoursPossible, snapshot.val());
+									});
+								});
+							});
+						});
+					});
+				});
+				
+				//alert("You have been checked out.");
+			}
+			
+			/** Checks if a member is on progress to complete their hours for the season.
+			  * Multiple conditions are checked in order, and only one condition will be applied to the member.
+			  * The order conditions are checked is: passed, onTrack, nearFailing, failed.
+			  *
+			  *		passed: The user has passed their hour commitment
+			  *		onTrack: The user is 10 hours ahead of their commitment
+			  *     nearFailing: The user is less than 10 hours ahead of their commitment
+			  *		failed: The user cannot possibly achieve commitment
+			  *
+			  * After checking conditions, the member is added to their respective group, and
+			  * an appropriate sign out message is generated.
+			  *
+			  * @param totalHoursPossible This is the total hours possible for a member. It is their current hours + hours left in season
+			  * @param requiredHours This is the required amount of hours for this member.
+			  */
+			function checkMemberProgress(totalHoursPossible, requiredHours)
+			{
+				//If this member has completed goal
+				if(hours >= requiredHours)
+				{
+					addToGroup("passed");
+					signOutMessage = "You passed your goal of " + requiredHours + " hours. You now have "
+									 + hours + " hours!";
+				}
+				//Else if this member is more than 10 hours ahead of their goal
+				else if(totalHoursPossible >= requiredHours + 10)
+				{
+					addToGroup("onTrack");
+					signOutMessage = "You have been signed out.";
+				}
+				//Else if this member still has possibility of completing goal
+				else if(totalHoursPossible >= requiredHours)
+				{
+					addToGroup("nearFailing");
+					signOutMessage = "You are close to missing your goal of " 
+									+ requiredHours + " hours. There are about " + (totalHoursPossible - hours) 
+									+ " hours left in the season, and you only have " + hours + " hours.";
+				}
+				//Else this member has missed their goal
+				else
+				{
+					addToGroup("failed");
+					signOutMessage = "You have missed your season goal of " + requiredHours 
+									+ " hours. There are about " + (totalHoursPossible - hours) 
+									+ " hours left in the season, and you only have " + hours + ".";
+				}
+			}
+
+			/** Adds the user to a group.
+			  * First clears the user of all status groups (passed, onTrack, nearFailing, failing),
+			  * then adds the user to their respective group. Finally alerts the member that they
+			  * have signed out
+			  *
+			  * @param group The group to sign into. This must be "passed", "onTrack", "nearFailing", or "failed".
+			  *              this variable is case sensitive.
+			  */
+			function addToGroup(group)
+			{
+				//Append the season suffix (Pre or Build). This is because there are two seperate groups for each season
+				var groupName = group.toString() + SEASON_SUFFIX;
+
+				//Initialize this promise to remove the user from every status group
+				let removePromise = function()
+				{
+					return new Promise(function (resolve, reject) {
+						//remove the user from all status groups
+						removeFromStatusGroups(resolve);
+					});
+				}
+
+				//Chain the promises to remove the user THEN add the user to the requested group and add the group under the member's associated groups
+				removePromise()
+				.then(function(res){
+					groupRef = database.ref("groups/" + groupName.toString());
+					groupRef.child("members").update(
+					{
+						[ID]: true
+					});
+
+					memberRef.child("groups").update(
+					{
+						[groupName]: true
+					});
+					
+					//Finally the member is signed out, send them their message	
+					alert(signOutMessage);					
+				});
+			}
+
+			/** Removes the user from all status groups.
+			  * The user is removed from each status group if they are already in
+			  * the group, and the group properties are removed from the user.
+			  * Once each group has been removed, the promise is resolved.
+			  * Note: This function should only be used with promises
+			  *
+			  * @param resolve Resolve from the promise this method was invoked from. This allows
+			  *                the function to insure that the removal finishes before any subsequent
+			  *                functions are invoked.
+			  */
+			function removeFromStatusGroups(resolve)
+			{
+				// This is the list of groups that we want to remove the user from
+				// Note: SEASON_SUFFIX allows there to be two seperate versions of each status group, one for each season. Thus, users
+				// are only removed from groups in the CURRENT season. The season can be changed near the top of the script
+				var groups = ["failed" + SEASON_SUFFIX.toString(), "nearFailing" + SEASON_SUFFIX.toString(), "onTrack" + SEASON_SUFFIX.toString(), "passed" + SEASON_SUFFIX.toString()];
+				var itCount = 0; //Iteration counter
+
+				//For each groups that we want to remove the user from, remove the user
+				groups.forEach(function(group)
+				{
+					//Try to find this member in each group
+					var tempRef = database.ref("groups/" + group.toString() + "/members");
+					tempRef.child(ID).once('value')
+					.then(function(snapshot)
+					{
+						if(snapshot.exists())
+						{
+							snapshot.ref.remove(); //If the member is in the group, remove the member from the group
+						}
+					})
+					//Then, under the user's associated groups, remove the user from each group
+					.then(function(snapshot)
+					{
+						memberGroupRef.child(group.toString()).once('value')
+						.then(function(snapshot)
+						{
+							itCount++; //Iterate the amount of groups that we have gone through
+							if(snapshot.exists())
+							{
+								snapshot.ref.remove();
+							}
+							
+							//If we have looped through all of our items. This is nessecary or the promise may resolve before finishing
+							if(itCount >= groups.length)
+							{
+								resolve(); //Resolve so that next function can start
+							}
+						});
+					});
+				});
+			}
+
+			/** Handles an error in the program.
+			  * The user is alerted of the error and then the error
+			  * is thrown.
+			  *
+			  * @param message The error message to show and throw
+			  */
+			function handleError(message)
+			{
+				alert(message);
+				throw new Error(message);
+			}
+		</script>
+		
+	</body>
+</html>
