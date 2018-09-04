@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<script src="http://code.jquery.com/jquery-1.6.min.js"></script>
+		<title>View Checked In Members</title>
+
+		<style>
+		body
+		{
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
+		#mainContent
+		{
+			width: auto;
+			margin: auto;
+			overflow-x: auto;
+			overflow-y: auto;
+		}
+
+		#mainTable
+		{
+			width: 100%;
+			margin: auto;
+		}
+
+		.passed
+		{
+			background-color: #C9FFA9;
+		}
+
+		.passed:hover
+		{
+			background-color: #A2FC6C;
+		}
+
+		.onTrack
+		{
+			background-color: #EAEAEA;
+		}
+
+		.onTrack:hover
+		{
+			background-color: #C4C4C4;
+		}
+
+		.nearFailing
+		{
+			background-color: #FFFFA4;
+		}
+
+		.nearFailing:hover
+		{
+			background-color: #FFFF70;
+		}
+
+		.failed
+		{
+			background-color: #FFB2A6;
+		}
+
+		.failed:hover
+		{
+			background-color: #FF7A66;
+		}
+
+		.field
+		{
+			width: 200px;
+			padding: 10px;
+			box-sizing: border-box;
+			border: 1px solid black;
+			border-radius: 4px;
+			-webkit-transition: width 0.4s ease-in-out;
+    		transition: width 0.4s ease-in-out;
+		}
+
+		.field:focus
+		{
+			width: 60%;
+		}
+
+		h1
+		{
+			text-align:center;
+		}
+
+		select
+		{
+			width: 20%;
+			padding: 15px;
+			border: none;
+			border-radius: 4px;
+			background-color: #f1f1f1;
+		}
+
+		input[type=button]
+		{
+			background-color: #4CAF50;
+    		border: none;
+    		border-radius: 4px;
+    		color: white;
+    		padding: 16px 32px;
+    		text-decoration: none;
+    		margin: 4px 2px;
+   			cursor: pointer;
+		}
+
+		table
+		{
+			margin: auto;
+		}
+
+		th
+		{
+			background-color: #4CAF50;
+			color: white;
+			padding: 10px;
+		}
+
+		td
+		{
+			padding: 5px;
+			text-align: center;
+			vertical-align: top;
+		}
+
+		tr
+		{
+			border-radius: 4px;
+			background-color: #F8F8F8;
+		}
+
+		</style>
+	</head>
+	<body>
+
+		<input type="button" value="View Checked In Members" onclick="getCheckedInMembers()" />
+
+		<div id="mainContent">
+		
+		</div>
+
+		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script>
+			/**
+			  *
+			  * @author Matthew Walowski
+			  */
+
+			// Initialize Firebase
+			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
+			var config = {
+				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
+				authDomain: "trident-robotics-attendance.firebaseapp.com",
+				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
+				projectId: "trident-robotics-attendance",
+				storageBucket: "trident-robotics-attendance.appspot.com",
+				messagingSenderId: "609506036733"
+			};
+			firebase.initializeApp(config);
+			
+			//Get reference to database
+			var database = firebase.database();
+			
+			//Endpoint references
+			var groupRef = database.ref("groups");
+			var activeIDRef = database.ref("activeIDs");
+			var memberRef = database.ref("members");
+
+			var memberArray;
+			var lookupCounter;
+
+			function getCheckedInMembers()
+			{
+				init();
+				retrieveMembers();
+			}
+
+			function init()
+			{
+				memberArray = [];
+				lookupCounter = 0;
+
+				//Remove the data from last search
+				let parent = document.getElementById("mainContent");
+				while(parent.firstChild)
+				{
+					parent.removeChild(parent.firstChild);
+				}
+			}
+
+			function retrieveMembers()
+			{
+				let retrievalPromise = function()
+				{
+					return new Promise(function(resolve, reject)
+					{
+						retrieveCheckedInMembers(resolve);
+					});
+				}
+
+				let infoLookupPromise = function()
+				{
+					return new Promise(function(resolve, reject)
+					{
+						for(let i=0; i < memberArray.length; i++)
+						{
+							getMemberInfo(memberArray[i].ID, i, resolve);
+						}
+					});
+				}
+
+				retrievalPromise()
+				.then(function(res)
+				{
+					infoLookupPromise()
+					.then(function(res)
+					{
+						drawPage();
+					});
+				});
+			}
+
+			function retrieveCheckedInMembers(resolve)
+			{
+				groupRef.child("checkedIn").child("members").once('value')
+				.then(function(snapshot)
+				{
+					snapshot.forEach(function(child)
+					{
+						let member = new Object();
+						member.ID = child.key;
+						memberArray.push(member);
+					});
+					resolve();
+				});
+			}
+
+			function getMemberInfo(p_ID, i, resolve)
+			{
+				//Query for member's name
+				memberRef.child(p_ID).once('value')
+				.then(function(snapshot)
+				{
+					if(snapshot.exists())
+					{					
+						//Put name and subteam into array
+						memberArray[i].name = snapshot.child("name").val();
+						memberArray[i].subteam = snapshot.child("groups").child("subteam").val();
+
+						lookupCounter++;
+
+						//If we have looked up all the IDs, resolve the promise
+						if(lookupCounter >= memberArray.length)
+						{
+							resolve();
+						}
+					}
+				});
+			}
+
+			function drawPage()
+			{
+				//Fetch content box and create table
+				let body = document.getElementById("mainContent");
+				let table = document.createElement("table");
+				table.id = "mainTable";
+
+				//Create header row
+				let tableRow = document.createElement("tr");
+				let controlsHeader = document.createElement("th");
+				let mechanicalHeader = document.createElement("th");
+				let softwareHeader = document.createElement("th");
+				let outreachHeader = document.createElement("th");
+
+				let tableTableRow = document.createElement("tr");
+				let controlsTable = document.createElement("table");
+				let mechanicalTable = document.createElement("table");
+				let softwareTable = document.createElement("table");
+				let outreachTable = document.createElement("table");
+
+				controlsHeader.innerHTML = "Controls";
+				mechanicalHeader.innerHTML = "Mechanical";
+				softwareHeader.innerHTML = "Software";
+				outreachHeader.innerHTML = "Outreach";
+
+				//Add header to header row, and add header row to table
+				tableRow.appendChild(controlsHeader);
+				tableRow.appendChild(mechanicalHeader);
+				tableRow.appendChild(softwareHeader);
+				tableRow.appendChild(outreachHeader);
+				table.appendChild(tableRow);
+
+				controlsTable.cellSpacing = 0;
+				mechanicalTable.cellSpacing = 0;
+				softwareTable.cellSpacing = 0;
+				outreachTable.cellSpacing = 0;
+				table.cellSpacing = 0;
+
+
+				for(let i = 0; i < 4; i++)
+				{
+					let data = document.createElement("td");
+					let tableToAdd = i == 0 ? controlsTable : i == 1 ? mechanicalTable : i == 2 ? softwareTable : outreachTable;
+
+					data.appendChild(tableToAdd);
+					tableTableRow.appendChild(data);
+				}
+
+				table.appendChild(tableTableRow);
+
+				//Add each member to the table
+				memberArray.forEach(function(member)
+				{
+					//Create this row of the table
+					let row = document.createElement("tr");
+					let name = document.createElement("td");
+
+					//Set table values
+					name.innerHTML = member.name;
+
+					row.appendChild(name);
+
+					let subteam = member.subteam;
+					let teamTable = subteam == "controls" ? controlsTable : subteam == "mechanical" ? mechanicalTable : subteam == "software" ? softwareTable : outreachTable;
+
+					teamTable.appendChild(row);
+				});
+
+				//Add table to body
+				body.appendChild(table);
+
+			}
+		
+			
+		</script>
+	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
+</html>

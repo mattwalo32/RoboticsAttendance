@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Add New Members</title>
+		<style>
+		#mainContent
+		{
+			margin-left:5%;
+			margin-right: :5%;
+		}
+
+		select
+		{
+			width: 20%;
+			padding: 15px;
+			border: none;
+			border-radius: 4px;
+			background-color: #f1f1f1;
+		}
+
+		input[type=button]
+		{
+			background-color: #4CAF50;
+    		border: none;
+    		border-radius: 4px;
+    		color: white;
+    		padding: 16px 32px;
+    		text-decoration: none;
+    		margin: 4px 2px;
+   			cursor: pointer;
+		}
+
+		.field
+		{
+			width: 200px;
+			padding: 10px;
+			box-sizing: border-box;
+			border: 1px solid gray;
+			border-radius: 4px;
+			-webkit-transition: width 0.4s ease-in-out;
+    		transition: width 0.4s ease-in-out;
+		}
+
+		.field:focus
+		{
+			width: 60%;
+		}
+		</style>
+	</head>
+	<body>
+		<div id="mainContent">
+			<h1>Enter Member Information</h1>
+			<br />
+
+			<h3>Full Name</h3>
+			<input type="text" name="Name" id="name" class="field" />
+			<br />
+
+			<h3>ID Number</h3>
+			<input type="number" name="ID" id="ID" class="field" />
+			<br />
+
+			<h3>Email</h3>
+			<input type="email" name="email" id="email" class="field"/>
+			<br />
+
+			<h3>Tier Commitment</h3>
+			<select id="tier" >
+				<option value="1">Tier 1</option>
+				<option value="2">Tier 2</option>
+				<option value="3">Tier 3</option>
+			</select>
+			<br />
+
+			<h3>Sub-Team</h3>
+			<select id="subTeam" >
+				<option value="controls">Controls</option>
+				<option value="mechanical">Mechanical</option>
+				<option value="software">Software</option>
+				<option value="outreach">Outreach</option>
+			</select>
+			
+			<br />
+			<br />
+			<!-- Check in and Check out buttons -->
+			<input type="button" class="button" name="CheckIn" value="Add Member" onclick="addMember()"/>
+		</div>
+
+		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script>
+			/**
+			  *
+			  * @author Matthew Walowski
+			  */
+
+			// Initialize Firebase
+			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
+			var config = {
+				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
+				authDomain: "trident-robotics-attendance.firebaseapp.com",
+				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
+				projectId: "trident-robotics-attendance",
+				storageBucket: "trident-robotics-attendance.appspot.com",
+				messagingSenderId: "609506036733"
+			};
+			firebase.initializeApp(config);
+			
+			//Get reference to database
+			var database = firebase.database();
+
+			//Endpoint references
+			var activeIDRef = database.ref("activeIDs");
+			var groupsRef = database.ref("groups");
+			var memberRef; //After init, memberRef = database.ref("members/" + ID);
+
+			var name, ID, email, subTeam, tier;
+			var errorMessage;
+
+			var tierOptions = ["1", "2", "3"];
+			var subTeamOptions = ["controls", "mechanical", "software", "outreach"]
+
+			var namePattern = new RegExp("^[a-zA-z]+[ ][a-zA-z]+$");
+
+			function addMember()
+			{
+				init();
+				if(isDataValid())
+				{
+					activateID();
+					updateMemberData();
+					updateGroups();
+					alert("User added");
+				}
+				else
+				{
+					handleError(errorMessage);
+				}
+			}
+
+			/** Initilizes any variables
+			  * Fetches member data from html form
+			  */
+			function init()
+			{
+				name = document.getElementById("name").value;
+				ID = document.getElementById("ID").value;
+				email = document.getElementById("email").value;
+
+				let subTeamSelector = document.getElementById("subTeam");
+				subTeam = subTeamSelector.options[subTeamSelector.selectedIndex].value;
+
+				let tierSelector = document.getElementById("tier");
+				tier = tierSelector.options[tierSelector.selectedIndex].value;
+
+				errorMessage = null;
+
+				memberRef = database.ref("members/" + ID);
+			}
+
+			function isDataValid()
+			{
+				let tierIsValid = false;
+				let subTeamIsValid = false;
+
+				//Validate Name
+				if(/*!namePattern.test(name)*/false)
+				{
+					errorMessage = "Name is invalid. Make sure you enter your first AND last name, and have only letters in your name.";
+					return false;
+				}
+
+				//Validate email
+				if(!document.getElementById("email").validity.valid && email.length > 1)
+				{
+					errorMessage = "Email is invalid";
+					return false;
+				}
+
+				//Validate ID
+				if(ID.length != 6)
+				{
+					errorMessage = "ID must be 6 digits long.";
+					return false;
+				}
+
+				errorMessage = "You choose an invalid option in the drop-down selector";
+
+				//Check that valid tier has been selected
+				tierOptions.forEach(function(validTier)
+				{
+					tierIsValid = tierIsValid ? tierIsValid : tier == validTier;
+				});
+
+				//Check that valid subteam has been selected
+				subTeamOptions.forEach(function(validTeam)
+				{
+					subTeamIsValid = subTeamIsValid ? subTeamIsValid : subTeam == validTeam;
+				});
+
+				return tierIsValid && subTeamIsValid;
+			}
+
+
+			function activateID()
+			{
+				activeIDRef.update(
+				{
+					[ID]: true
+				});
+			}
+
+			function updateMemberData()
+			{
+				memberRef.update(
+				{
+					name: name,
+					ID: ID,
+					email: email,
+					groups: 
+					{
+						tier: tier,
+						subteam: subTeam
+					}
+
+				});
+			}
+
+			function updateGroups()
+			{
+				groupsRef.child("tier" + tier.toString()).child("members").update(
+				{
+					[ID]: true
+				});
+
+				groupsRef.child(subTeam.toString()).child("members").update(
+				{
+					[ID]: true
+				});
+			}
+
+			/** Handles an error in the program.
+			  * The user is alerted of the error and then the error
+			  * is thrown.
+			  *
+			  * @param message The error message to show and throw
+			  */
+			function handleError(message)
+			{
+				alert(message);
+				throw new Error(message);
+			}
+		</script>
+	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
+</html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Generate Report</title>
+
+		<style>
+		#mainContent
+		{
+			width: auto;
+			margin: auto;
+			overflow-x: auto;
+			overflow-y: auto;
+		}
+
+		.passed
+		{
+			background-color: #C9FFA9;
+		}
+
+		.passed:hover
+		{
+			background-color: #A2FC6C;
+		}
+
+		.onTrack
+		{
+			background-color: #EAEAEA;
+		}
+
+		.onTrack:hover
+		{
+			background-color: #C4C4C4;
+		}
+
+		.nearFailing
+		{
+			background-color: #FFFFA4;
+		}
+
+		.nearFailing:hover
+		{
+			background-color: #FFFF70;
+		}
+
+		.failed
+		{
+			background-color: #FFB2A6;
+		}
+
+		.failed:hover
+		{
+			background-color: #FF7A66;
+		}
+
+		.field
+		{
+			width: 200px;
+			padding: 10px;
+			box-sizing: border-box;
+			border: 1px solid black;
+			border-radius: 4px;
+			-webkit-transition: width 0.4s ease-in-out;
+    		transition: width 0.4s ease-in-out;
+		}
+
+		.field:focus
+		{
+			width: 60%;
+		}
+
+		h1
+		{
+			text-align:center;
+		}
+
+		select
+		{
+			width: 20%;
+			padding: 15px;
+			border: none;
+			border-radius: 4px;
+			background-color: #f1f1f1;
+		}
+
+		input[type=button]
+		{
+			background-color: #4CAF50;
+    		border: none;
+    		border-radius: 4px;
+    		color: white;
+    		padding: 16px 32px;
+    		text-decoration: none;
+    		margin: 4px 2px;
+   			cursor: pointer;
+		}
+
+		table
+		{
+			width: 100%;
+			margin: auto;
+		}
+
+		th
+		{
+			background-color: #4CAF50;
+			color: white;
+			padding: 10px;
+		}
+
+		td
+		{
+			padding: 5px;
+			text-align: center;
+		}
+
+		tr
+		{
+			border-radius: 4px;
+		}
+
+		</style>
+	</head>
+	<body>
+
+		<input type="button" value="Create Report" onclick="getReport()" />
+		<select id="season">
+			<option value="Build">Build Season</option>
+			<option value="Pre">Preseason</option>
+		</select>
+
+		<div id="mainContent">
+		
+		</div>
+
+		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script>
+			/**
+			  *
+			  * @author Matthew Walowski
+			  */
+
+			// Initialize Firebase
+			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
+			var config = {
+				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
+				authDomain: "trident-robotics-attendance.firebaseapp.com",
+				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
+				projectId: "trident-robotics-attendance",
+				storageBucket: "trident-robotics-attendance.appspot.com",
+				messagingSenderId: "609506036733"
+			};
+			firebase.initializeApp(config);
+			
+			//Get reference to database
+			var database = firebase.database();
+			
+			//Endpoint references
+			var groupRef = database.ref("groups");
+			var activeIDRef = database.ref("activeIDs");
+			var memberRef = database.ref("members");
+
+			var memberArray;
+			var lookupCounter;
+
+			var SEASON;
+			var FULL_SEASON_NAME;
+			var errorMessage;
+
+			function getReport()
+			{
+				init();
+				//If build season or preseason is selected
+				if(inputIsValid())
+				{
+					generateReport();
+				}
+				else
+				{
+					handleError(errorMessage);
+				}
+			}
+
+			function init()
+			{
+				//Get the value of the selector
+				let seasonSelector = document.getElementById("season");
+				SEASON = seasonSelector.options[seasonSelector.selectedIndex].value;
+				FULL_SEASON_NAME = SEASON == "Pre" ? "preseason" : "buildSeason";
+
+				errorMessage = null;
+				memberArray = [];
+				lookupCounter = 0;
+
+				//Remove the data from last search
+				let parent = document.getElementById("mainContent");
+				while(parent.firstChild)
+				{
+					parent.removeChild(parent.firstChild);
+				}
+			}
+
+			function inputIsValid()
+			{
+				//Check if the selector value is Pre or Build, any other value is invalid
+				errorMessage = "Preseason or Build Season must be selected";
+				return SEASON == "Pre" || SEASON == "Build";
+			}
+
+			function generateReport()
+			{
+				let retrievalPromise = function()
+				{
+					return new Promise(function(resolve, reject)
+					{
+						retrieveStatusGroups(resolve);
+					});
+				}
+
+				let nameLookupPromise = function()
+				{
+					return new Promise(function(resolve, reject)
+					{
+						for(let i=0; i < memberArray.length; i++)
+						{
+							getMemberInfo(memberArray[i].ID, i, resolve);
+						}
+					});
+				}
+
+				retrievalPromise()
+				.then(function(res)
+				{
+					nameLookupPromise()
+					.then(function(res)
+					{
+						drawReport();
+					});
+				});
+			}
+
+			function retrieveStatusGroups(resolve)
+			{
+				//List of all groups to retrive from
+				let statusGroups = ["passed" + SEASON.toString(), "onTrack" + SEASON.toString(), "nearFailing" + SEASON.toString(), "failed" + SEASON.toString()];
+				let i = 0;
+
+
+				//For each group, get all the members and add to the appropriate array
+				statusGroups.forEach(function(group) {
+					groupRef.child(group).child("members").once('value')
+					.then(function(snapshot)
+					{
+						i++;
+
+						//For each item in each list
+						snapshot.forEach(function(child)
+						{
+							//Create a member object, set the ID property and push to array
+							let member = new Object();
+							member.ID = child.key;
+							member.statusGroup = group;
+							memberArray.push(member);
+						});
+					
+						//If we have looped through all the groups, resolve the promise
+						if(i >= statusGroups.length)
+						{
+							resolve();
+						}
+					});
+				});
+			}
+
+			function getMemberInfo(p_ID, i, resolve)
+			{
+				//Query for member's name
+				memberRef.child(p_ID).once('value')
+				.then( function(snapshot)
+				{
+					if(snapshot.exists())
+					{							
+						//Put name into array
+						memberArray[i].name = snapshot.child("name").val();
+						//Get season hours and round to two decimal places. Add to array
+						memberArray[i].hours = parseFloat(snapshot.child(FULL_SEASON_NAME + "Hours").val()).toFixed(2);
+						//Get tier
+						memberArray[i].tier = snapshot.child("groups").child("tier").val();
+						//Get subteam
+						memberArray[i].subteam = snapshot.child("groups").child("subteam").val();
+
+						lookupCounter++;
+						//If we have looked up all the IDs, resolve the promise
+						if(lookupCounter >= memberArray.length)
+						{
+							resolve();
+						}
+					}
+				});
+			}
+
+			function drawReport()
+			{
+				//Fetch content box and create table
+				let body = document.getElementById("mainContent");
+				let table = document.createElement("table");
+
+				//Create header row
+				let tableRow = document.createElement("tr");
+				let nameHeader = document.createElement("th");
+				let IDHeader = document.createElement("th");
+				let hourHeader = document.createElement("th");
+				let tierHeader = document.createElement("th");
+				let subteamHeader = document.createElement("th");
+
+				nameHeader.innerHTML = "Name";
+				IDHeader.innerHTML = "ID Number";
+				hourHeader.innerHTML = "Hours";
+				tierHeader.innerHTML = "Tier";
+				subteamHeader.innerHTML = "Subteam";
+
+
+				//Add header to header row, and add header row to table
+				tableRow.appendChild(nameHeader);
+				tableRow.appendChild(IDHeader);
+				tableRow.appendChild(hourHeader);
+				tableRow.appendChild(tierHeader);
+				tableRow.appendChild(subteamHeader);
+				table.appendChild(tableRow);
+				table.cellSpacing = 0;
+
+				//Add each member to the table
+				memberArray.forEach(function(member)
+				{
+					//Create this row of the table
+					let tableRow = document.createElement("tr");
+					let name = document.createElement("td");
+					let ID = document.createElement("td");
+					let hours = document.createElement("td");
+					let tier = document.createElement("td");
+					let subteam = document.createElement("td");
+
+					//Set table values
+					name.innerHTML = member.name;
+					ID.innerHTML = member.ID;
+					hours.innerHTML = member.hours;
+					tier.innerHTML = member.tier;
+					subteam.innerHTML = member.subteam;
+
+					//Add columns to row
+					tableRow.appendChild(name);
+					tableRow.appendChild(ID);
+					tableRow.appendChild(hours);
+					tableRow.appendChild(tier);
+					tableRow.appendChild(subteam);
+
+					//Add row to table
+					table.appendChild(tableRow);
+
+					//Add row to status class
+					switch(member.statusGroup)
+					{
+						case "passed" + SEASON.toString():
+							tableRow.className = "passed";
+							break;
+
+						case "onTrack" + SEASON.toString():
+							tableRow.className = "onTrack";
+							break;
+
+						case "nearFailing" + SEASON.toString():
+							tableRow.className = "nearFailing";
+							break;
+
+						case "failed" + SEASON.toString():
+							tableRow.className = "failed";
+							break;
+					}
+				});
+
+				//Add table to body
+				body.appendChild(table);
+			}
+
+			/** Handles an error in the program.
+			  * The user is alerted of the error and then the error
+			  * is thrown.
+			  *
+			  * @param message The error message to show and throw
+			  */
+			function handleError(message)
+			{
+				alert(message);
+				throw new Error(message);
+			}
+		</script>
+	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
+</html>

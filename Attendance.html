@@ -8,16 +8,33 @@
 			text-align:center;
 		}
 		
-		/*Centers items horizontally*/
-		#errorMessage {
-			color:red;
-		}
-		
 		/*Centers items vertically*/
 		#formBox{
 			margin:auto;
 			margin-top:20%;
 			text-align:center;
+		}
+
+		input[type=button]
+		{
+			background-color: #4CAF50;
+    		border: none;
+    		border-radius: 4px;
+    		color: white;
+    		padding: 16px 32px;
+    		text-decoration: none;
+    		margin: 4px 2px;
+   			cursor: pointer;
+		}
+
+		.field
+		{
+			width: 300px;
+			padding: 10px;
+			box-sizing: border-box;
+			border: 1px solid gray;
+    		text-align: center;
+			border-radius: 4px;
 		}
 
 		</style>
@@ -27,17 +44,40 @@
 		<br />
 		
 		<div id="formBox">
-			<h3>ID Number:</h3>
-			<input type="number" name="ID" id="IDBox" />
+			<h1>Enter ID Number</h1>
+			<input class="field" type="number" name="ID" id="IDBox" />
 			
 			<div id="buttonContainer">
 				<br />
-				<input type="button" class="button" name="CheckIn" value="Check In" onclick="checkIn()"/>
-				<input type="button" class="button" name="CheckOut" value="Check Out" onclick="checkOut()"/>
+				<!-- Check in and Check out buttons -->
+				<input type="button" name="CheckIn" value="Check In" onclick="checkIn()"/>
+				<input type="button" name="CheckOut" value="Check Out" onclick="checkOut()"/>
 			</div>
 		</div>
 		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
 		<script>
+			/** This script checks users in and out of robotics and logs their hours to Firebase.
+			  * Then an analysis on their hours is ran, and their ability to complete their
+			  * hour commitment is assessed.
+			  *
+			  *	This program must run with the proper Firebase database configuration. Users must be entered in database
+			  * before running program, or every ID will be rejected.
+			  *
+			  * This program was designed for a team that uses a tier system of hour commitment. For example,
+			  * members in tier 1 would need to complete more hours than members in tier 3, the lowest tier.
+			  *
+			  * This program uses javascript promises.
+			  * The Firebase API has synchronus calls, so while the browser fetches data from firebase, 
+			  * the script is still running. The problem with this is that data may be requested, but
+			  * be returned AFTER it was supposed to be used by a following function. To fix this, 
+			  * promises are used to execute code block by block, and suspend execution until a task finishes.
+			  *
+			  * This program was designed to run on Chrome and is only verified to work properly on Chrome. At the
+			  * time of creation, this program does not run properly on Internet Explorer.
+			  *
+			  * @author Matthew Walowski
+			  */
+
 			var SEASON = "preseason"; //COMMENT OUT THIS LINE DURING BUILD SEASON
 			var SEASON_SUFFIX = "Pre"; //COMMENT OUT THIS LINE DURING BUILD SEASON
 			
@@ -319,15 +359,19 @@
 				checkedInRef.child(ID).once('value')
 				.then(function(snapshot)
 				{
-					snapshot.ref.remove(); //If it doesn't exist, this is their first meeting
+					snapshot.ref.remove();
 				});
 
-				//Gives the user the checkedIn property. This step may seem a little redundant,
+				//Remove user's checkedIn property. This step may seem a little redundant,
 				//but this allows us to check if a user is checkedIn by looking at the checkedIn list
 				//or at their account.
-				memberGroupRef.update(
+				memberGroupRef.child("checkedIn").once('value')
+				.then(function(snapshot)
 				{
-					checkedIn: false
+					if(snapshot.exists())
+					{
+						snapshot.ref.remove();
+					}
 				});
 
 				//Find out how many days the user has attended robotics. This info is needed to title their in/out record.
@@ -586,5 +630,5 @@
 			}
 		</script>
 		
-	</body>
+	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
 </html>
