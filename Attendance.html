@@ -46,6 +46,7 @@
 		<div id="formBox">
 			<h1>Enter ID Number</h1>
 			<input class="field" type="number" name="ID" id="IDBox" />
+			<input class="field" type="checkbox" name="teamBuild" id="teamBuild" />
 			
 			<div id="buttonContainer">
 				<br />
@@ -117,6 +118,7 @@
 			var signOutMessage;
 			var error;
 			var hours;
+			var teambuilding;
 			
 			/** This function is called to check in the user.
 			  */
@@ -147,7 +149,8 @@
 				hours = 0;
 				
 				//Get the ID from the input box
-			    ID = document.getElementById("IDBox").value;
+			    	ID = document.getElementById("IDBox").value;
+				teambuilding = document.getElementById("teamBuild").checked;
 
 			    //Init references to endpoints
 			    recordRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID);
@@ -324,7 +327,8 @@
 					//Put the users check-in time for today's entry.
 					database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID + "/" + daysAttended.toString()).set(
 					{
-						timeIn: timestamp,
+						//If they were at teambuilding, give extra 30 minutes
+						timeIn: [teambuilding ? timestamp - 1800 : timestamp],
 						timeOut: 0,
 						duration: 0
 					});
