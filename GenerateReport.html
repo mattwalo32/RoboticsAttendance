@@ -257,6 +257,7 @@
 						{
 							//Create a member object, set the ID property and push to array
 							let member = new Object();
+						
 							member.ID = child.key;
 							member.statusGroup = group;
 							memberArray.push(member);
@@ -292,6 +293,15 @@
 						//If we have looked up all the IDs, resolve the promise
 						if(lookupCounter >= memberArray.length)
 						{
+							//Sort by name alphabetically
+							memberArray.sort(function(a, b){
+								if(a.name < b.name){
+									return -1;
+								}else{
+									return 1;
+								}
+							});
+							//Resolve the promise
 							resolve();
 						}
 					}
@@ -393,5 +403,5 @@
 				throw new Error(message);
 			}
 		</script>
-	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
+	</body>
 </html>
