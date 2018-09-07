@@ -3,6 +3,7 @@
 	<head>
 		<title>Attendance Program</title>
 		<style>
+		
 		/*Centers items horizontally*/
 		h3 {
 			text-align:center;
@@ -36,7 +37,6 @@
     		text-align: center;
 			border-radius: 4px;
 		}
-
 		</style>
 	</head>
 	<body>
@@ -46,10 +46,13 @@
 		<div id="formBox">
 			<h1>Enter ID Number</h1>
 			<input class="field" type="number" name="ID" id="IDBox" />
+			<br />	
 			<br />
-			Teambuilding <input class="field" type="checkbox" name="teamBuild" id="teamBuild" />
+			<input class="checkbox" type="checkbox" name="teamBuild" id="teamBuild" />
+			<span>Team Building</span>
 			
 			<div id="buttonContainer">
+				<br />
 				<br />
 				<!-- Check in and Check out buttons -->
 				<input type="button" name="CheckIn" value="Check In" onclick="checkIn()"/>
