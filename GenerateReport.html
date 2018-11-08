@@ -52,6 +52,16 @@
 			background-color: #FF7A66;
 		}
 
+		.dates
+		{
+			background-color: #EEEEEE;
+		}
+
+		/*.dates:hover
+		{
+			background-color: #898989;
+		}*/
+
 		.field
 		{
 			width: 200px;
@@ -158,9 +168,19 @@
 			var groupRef = database.ref("groups");
 			var activeIDRef = database.ref("activeIDs");
 			var memberRef = database.ref("members");
+			var recordRef;
 
 			var memberArray;
 			var lookupCounter;
+
+			// Global variables for DOM objects
+			var table;
+			var body;
+
+			var datesOpen = false;
+			var dateStartIndex = -1;
+			var dateEndIndex = -1;
+			var datesInit = false;
 
 			var SEASON;
 			var FULL_SEASON_NAME;
@@ -186,6 +206,7 @@
 				let seasonSelector = document.getElementById("season");
 				SEASON = seasonSelector.options[seasonSelector.selectedIndex].value;
 				FULL_SEASON_NAME = SEASON == "Pre" ? "preseason" : "buildSeason";
+				recordRef = database.ref("record" + SEASON);
 
 				errorMessage = null;
 				memberArray = [];
@@ -311,8 +332,8 @@
 			function drawReport()
 			{
 				//Fetch content box and create table
-				let body = document.getElementById("mainContent");
-				let table = document.createElement("table");
+				body = document.getElementById("mainContent");
+				table = document.createElement("table");
 
 				//Create header row
 				let tableRow = document.createElement("tr");
@@ -338,6 +359,8 @@
 				table.appendChild(tableRow);
 				table.cellSpacing = 0;
 
+				let rowIndex = 1;
+
 				//Add each member to the table
 				memberArray.forEach(function(member)
 				{
@@ -362,9 +385,17 @@
 					tableRow.appendChild(hours);
 					tableRow.appendChild(tier);
 					tableRow.appendChild(subteam);
+					tableRow.ID = member.ID;
+					member.rowIndex = rowIndex;
+
+					tableRow.onclick = function(tableRow) 
+					{
+						displayMemberDetails(member.ID, member.rowIndex);
+					}
 
 					//Add row to table
 					table.appendChild(tableRow);
+					rowIndex ++;
 
 					//Add row to status class
 					switch(member.statusGroup)
@@ -389,6 +420,123 @@
 
 				//Add table to body
 				body.appendChild(table);
+			}
+
+			/**
+			  * Handles everything from getting the detailed member
+			  * check in and check out information to displaying this
+			  * information on the screen.
+			  *
+			  * @param memberID The ID of the member that should be looked up
+			  */
+			function displayMemberDetails(memberID, rowIndex)
+			{
+				if(!datesOpen)
+				{
+					getMemberDetails(memberID, rowIndex);
+					datesOpen = true;
+				}
+				else
+				{
+					//dateEndIndex--;
+					for(var i = dateStartIndex; i < dateEndIndex; i++)
+					{
+						table.deleteRow(dateStartIndex);
+					}
+
+					datesOpen = false;
+					datesInit = false;
+					dateStartIndex = -1;
+					dateEndIndex = -1;
+				}
+
+			}
+
+			/**
+			  * Gets all check in and check out information for a member
+			  *
+			  * @param memberID The ID of the member that should be looked up
+			  */
+			function getMemberDetails(memberID, rowIndex)
+			{
+				recordRef.child(memberID).once('value')
+				.then(function(days)
+				{
+					//For each day that the member attended
+					days.forEach(function(day)
+					{
+						if(!isNaN(day.key))
+						{
+							let duration = secondsToHours(day.child("duration").val());
+							let timeIn = formatTimestamp(day.child("timeIn").val());
+							let timeOut = formatTimestamp(day.child("timeOut").val());
+
+							if(duration != null && timeIn != null && timeOut != null)
+							{
+								dateStartIndex = rowIndex + 1;
+								dateEndIndex = dateEndIndex > 0 ? dateEndIndex + 1 : dateStartIndex + 1;
+								appendMeetingDate(rowIndex, duration, timeIn, timeOut);
+							}
+						}
+					});
+				});
+			}
+
+			function appendMeetingDate(parentID, duration, timeIn, timeOut)
+			{
+				let tableRow = table.insertRow(parentID + (datesInit ? 2 : 1));
+
+				if(!datesInit)
+				{
+					timeIn = "Time In";
+					timeOut = "Time Out";
+					duration = "Duration";
+					datesInit = true;
+				}
+
+				tableRow.insertCell(0);
+				
+				let timeInCol = tableRow.insertCell(1);
+				let timeOutCol = tableRow.insertCell(2);
+				let durationCol = tableRow.insertCell(3);
+
+				tableRow.insertCell(4);
+
+				timeInCol.innerHTML = timeIn;
+				timeOutCol.innerHTML = timeOut;
+				durationCol.innerHTML = duration;
+
+				table.className = duration.includes("-") ? "failed": "dates";
+			}
+
+			/** Formats the unix timestamp into a readable date
+			  *
+			  * @param timestamp The unix timestamp to format
+			  * @returns The string version of the readable stamp
+			  */
+			function formatTimestamp(timestamp)
+			{
+				var a = new Date(timestamp * 1000);
+				var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+				var year = a.getFullYear();
+				var month = months[a.getMonth()];
+				var date = a.getDate();
+				var hour = a.getHours() % 12;
+				var min = a.getMinutes().toString().length == 1 ? "0" + a.getMinutes(): a.getMinutes();
+				var sec = a.getSeconds();
+				var time = month + ' ' + date + ', ' + year + ' ' + hour + ':' + min;
+
+				return time;
+			}
+
+			/** Formats duration in seconds to hours
+			  *
+			  * @param seconds The amount of seconds to format
+			  * @returns The duration value in hours
+			  */
+			function secondsToHours(seconds)
+			{
+				return (seconds / 3600).toFixed(2);
 			}
 
 			/** Handles an error in the program.
