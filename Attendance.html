@@ -48,8 +48,9 @@
 			<input class="field" type="number" name="ID" id="IDBox" />
 			<br />	
 			<br />
-			<input class="checkbox" type="checkbox" name="teamBuild" id="teamBuild" />
-			<span>Team Building</span>
+			<!-- Uncomment this for preseason... comment the checkbox out for build season bc there is no team building. Also uncomment the checkbox code in the javascript-->
+			<!--<input class="checkbox" type="checkbox" name="teamBuild" id="teamBuild" />
+			<span>Team Building</span>-->
 			
 			<div id="buttonContainer">
 				<br />
@@ -154,7 +155,9 @@
 				
 				//Get the ID from the input box
 			    	ID = document.getElementById("IDBox").value;
-				teambuilding = document.getElementById("teamBuild").checked;
+				// CHECKBOX Code, Uncomment for preseason, comment out for build season
+				//teambuilding = document.getElementById("teamBuild").checked;
+				teambuilding = false;
 
 			    //Init references to endpoints
 			    recordRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID);
@@ -348,6 +351,7 @@
 						daysAttended: daysAttendedRef
 					});
 					alert("You have been checked in.");
+					document.getElementById("IDBox").value = '';
 				});
 			}
 
@@ -569,6 +573,7 @@
 					
 					//Finally the member is signed out, send them their message	
 					alert(signOutMessage);					
+					document.getElementById("IDBox").value = '';
 				});
 			}
 
