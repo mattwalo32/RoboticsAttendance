@@ -46,8 +46,8 @@
 			// for that day of the week.
 			var firstPreseasonMeetings = new Map();
 
-			firstPreseasonMeetings.set(1536037200, weekMeetingDuration); //Tuesday, September 4th, 2018, 12:00 AM
-			firstPreseasonMeetings.set(1536210000, weekMeetingDuration); //Thursday, September 6th, 2018, 12:00 AM
+			firstPreseasonMeetings.set(1567512000, weekMeetingDuration); //Tuesday, September 3rd, 2019, 12:00 AM
+			firstPreseasonMeetings.set(1567684800, weekMeetingDuration); //Thursday, September 5th, 2019, 12:00 AM
 
 			var firstBuildSeasonMeetings = new Map();
 
