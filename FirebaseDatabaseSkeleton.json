@@ -1,0 +1,136 @@
+{
+	"activeIDs": {
+
+	},
+
+	"preseason": {
+		"availableHours": 100
+	},
+	
+	"buildSeason": {
+		"availableHours": 100
+	},
+	
+	"members": {	
+
+	},
+	
+	"groups": {
+		"checkedIn": {
+			"name": "Checked In",
+			"members": {
+			
+			}
+		},
+	
+		"tier1": {
+			"name": "Tier 1",
+			"requiredHoursBuild": 100,
+			"requiredHoursPre": 40,
+			"members": {
+
+			}
+		},
+	
+		"tier2": {
+			"name": "Tier 2",
+			"requiredHoursBuild": 80,
+			"requiredHoursPre": 40,
+			"members": {
+			
+			}
+		},
+	
+		"tier3": {
+			"name": "Tier 3",
+			"requiredHoursBuild": 70,
+			"requiredHoursPre": 40,
+			"members": {
+			
+			}
+		},
+		
+		"failedBuild": {
+			"name": "Failed to Attain Build Season Hours",
+			"members": {
+
+			}
+		},
+
+		"failedPre": {
+			"name": "Failed to Attain Preseason Hours",
+			"members": {
+
+			}
+		},
+
+		"nearFailingBuild": {
+			"name": "Near Failing to Attain Build Season Hours",
+			"members": {
+
+			}
+		},
+
+		"nearFailingPre": {
+			"name": "Near Failing to Attain Preseason Hours",
+			"members": {
+
+			}
+		},
+
+		"onTrackBuild": {
+			"name": "On Track to Finish Build Season Hours",
+			"members": {
+			
+			}
+		},
+		
+		"onTrackPre": {
+			"name": "On Track to Finish Preseason Hours",
+			"members": {
+				
+			}
+		},
+		"passedBuild": {
+			"name": "Passed Build Season Hours",
+			"members": {
+			
+			}
+		},
+		
+		"passedPre": {
+			"name": "Passed Preseason Hours",
+			"members": {
+			
+			}
+		},
+	
+		"mechanical": {
+			"name": "Mechanical",
+			"members": {
+
+			}
+		},
+		
+		"controls": {
+			"name": "Controls",
+			"members": {
+			
+			}
+		},
+		
+		"outreach": {
+			"name": "Outreach",
+			"members": {
+			
+			}
+		},
+		
+		"software": {
+			"name": "Software",
+			"members": {
+
+			}
+		}
+	}
+}
