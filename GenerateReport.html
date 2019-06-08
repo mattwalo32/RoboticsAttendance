@@ -128,6 +128,12 @@
 			border-radius: 4px;
 		}
 
+		p
+		{
+			padding: 10px;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
 		</style>
 	</head>
 	<body>
@@ -137,13 +143,15 @@
 			<option value="Build">Build Season</option>
 			<option value="Pre">Preseason</option>
 		</select>
+		<p id="hoursRemaining" style="display:inline-block">Hours Remaining: </p>
 
 		<div id="mainContent">
 		
 		</div>
 
 		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
-		<script>
+		<script type="text/javascript" src="CalculateHours.js"></script>
+		<script type="text/javascript">
 			/**
 			  *
 			  * @author Matthew Walowski
@@ -160,6 +168,9 @@
 				messagingSenderId: "609506036733"
 			};
 			firebase.initializeApp(config);
+			
+			var remainingWeeks = 3; // Start at 3 because this is when I implemented this functionality
+			var weekStartTimes = [1548547200, 1549152000, 1549756800];
 			
 			//Get reference to database
 			var database = firebase.database();
@@ -185,6 +196,20 @@
 			var SEASON;
 			var FULL_SEASON_NAME;
 			var errorMessage;
+
+			window.onload = function()
+			{
+				calculateHours(database);
+
+				if(SEASON == "Pre")
+				{
+					document.getElementById("hoursRemaining").innerHTML = "Hours Reamining: " + availablePreseasonHours;
+				}
+				else
+				{
+					document.getElementById("hoursRemaining").innerHTML = "Hours Reamining: " + availableBuildSeasonHours;
+				}
+			}
 
 			function getReport()
 			{
@@ -218,6 +243,18 @@
 				{
 					parent.removeChild(parent.firstChild);
 				}
+				
+				// Must set remaining weeks here, otherwise weeks will go below 0 if report
+				// is generated multiple times
+				remainingWeeks = 3;
+				
+				weekStartTimes.forEach(function(startTime)
+				{
+					if(Date.now() / 1000 > startTime)
+					{
+						remainingWeeks --;
+					}
+				});
 			}
 
 			function inputIsValid()
@@ -309,6 +346,11 @@
 						memberArray[i].tier = snapshot.child("groups").child("tier").val();
 						//Get subteam
 						memberArray[i].subteam = snapshot.child("groups").child("subteam").val();
+						
+						//Calculate needed hours per week
+						var hoursRequired = memberArray[i].tier == 1 ? 100 : memberArray[i].tier == 2 ? 80 : 70;
+						memberArray[i].hoursPerWeek =  parseFloat((hoursRequired - memberArray[i].hours) / remainingWeeks).toFixed(2);
+						memberArray[i].hoursPerWeek = memberArray[i].hoursPerWeek < 0 ? 0 : memberArray[i].hoursPerWeek;
 
 						lookupCounter++;
 						//If we have looked up all the IDs, resolve the promise
@@ -340,12 +382,14 @@
 				let nameHeader = document.createElement("th");
 				let IDHeader = document.createElement("th");
 				let hourHeader = document.createElement("th");
+				let hoursPerWeekHeader = document.createElement("th");
 				let tierHeader = document.createElement("th");
 				let subteamHeader = document.createElement("th");
 
 				nameHeader.innerHTML = "Name";
 				IDHeader.innerHTML = "ID Number";
 				hourHeader.innerHTML = "Hours";
+				hoursPerWeekHeader.innerHTML = "Needed Hours Per Week (Max 26)";
 				tierHeader.innerHTML = "Tier";
 				subteamHeader.innerHTML = "Subteam";
 
@@ -354,6 +398,7 @@
 				tableRow.appendChild(nameHeader);
 				tableRow.appendChild(IDHeader);
 				tableRow.appendChild(hourHeader);
+				tableRow.appendChild(hoursPerWeekHeader);
 				tableRow.appendChild(tierHeader);
 				tableRow.appendChild(subteamHeader);
 				table.appendChild(tableRow);
@@ -369,6 +414,7 @@
 					let name = document.createElement("td");
 					let ID = document.createElement("td");
 					let hours = document.createElement("td");
+					let hoursPerWeek = document.createElement("td");
 					let tier = document.createElement("td");
 					let subteam = document.createElement("td");
 
@@ -376,6 +422,7 @@
 					name.innerHTML = member.name;
 					ID.innerHTML = member.ID;
 					hours.innerHTML = member.hours;
+					hoursPerWeek.innerHTML = member.hoursPerWeek;
 					tier.innerHTML = member.tier;
 					subteam.innerHTML = member.subteam;
 
@@ -383,6 +430,7 @@
 					tableRow.appendChild(name);
 					tableRow.appendChild(ID);
 					tableRow.appendChild(hours);
+					tableRow.appendChild(hoursPerWeek);
 					tableRow.appendChild(tier);
 					tableRow.appendChild(subteam);
 					tableRow.ID = member.ID;

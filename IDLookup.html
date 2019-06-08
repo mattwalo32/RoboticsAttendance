@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Generate Report</title>
+
+		<style>
+
+		input[type=button]
+		{
+			background-color: #4CAF50;
+    		border: none;
+    		border-radius: 4px;
+    		color: white;
+    		padding: 16px 32px;
+    		text-decoration: none;
+    		margin: 4px 2px;
+   			cursor: pointer;
+		}
+
+		table
+		{
+			width: 100%;
+			margin: auto;
+		}
+
+		th
+		{
+			background-color: #4CAF50;
+			color: white;
+			padding: 10px;
+		}
+
+		td
+		{
+			padding: 5px;
+			text-align: center;
+		}
+
+		tr
+		{
+			border-radius: 4px;
+		}
+
+		</style>
+	</head>
+	<body>
+		<input type="button" value="Lookup" onclick="lookup()" />
+		<input type="text" value="ID" id="id_box" />
+
+		<div id="mainContent">
+			
+		</div>
+
+		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script>
+			/**
+			  *
+			  * @author Matthew Walowski
+			  */
+
+			// Initialize Firebase
+			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
+			var config = {
+				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
+				authDomain: "trident-robotics-attendance.firebaseapp.com",
+				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
+				projectId: "trident-robotics-attendance",
+				storageBucket: "trident-robotics-attendance.appspot.com",
+				messagingSenderId: "609506036733"
+			};
+			firebase.initializeApp(config);
+			
+			//Get reference to database
+			var database = firebase.database();
+			var SEASON = "Build";
+			var FULL_SEASON_NAME = "buildSeason";
+			var member = new Object();
+			var memberRef = database.ref("members");
+
+
+			function lookup()
+			{
+				init();
+
+				let nameLookupPromise = function()
+				{
+					return new Promise(function(resolve, reject)
+					{
+						getMemberInfo(document.getElementById("id_box").value, resolve);
+					});
+				};
+
+				nameLookupPromise()
+					.then(function(res)
+					{
+						drawReport();
+					});
+			}
+
+			function getMemberInfo(p_ID, resolve)
+			{
+
+				//Query for member's name
+				memberRef.child(p_ID).once('value')
+				.then( function(snapshot)
+				{
+					if(snapshot.exists())
+					{		
+						//Put name into array
+						member.name = snapshot.child("name").val();
+				
+						//Get season hours and round to two decimal places. Add to array
+						member.hours = parseFloat(snapshot.child(FULL_SEASON_NAME + "Hours").val()).toFixed(2);
+
+						//Get tier
+						member.tier = snapshot.child("groups").child("tier").val();
+						//Get subteam
+						member.subteam = snapshot.child("groups").child("subteam").val();
+	
+						resolve();
+					}
+				});
+			}
+
+			function drawReport()
+			{
+				//Fetch content box and create table
+				body = document.getElementById("mainContent");
+				table = document.createElement("table");
+
+				//Create header row
+				let tableRow = document.createElement("tr");
+				let nameHeader = document.createElement("th");
+				let IDHeader = document.createElement("th");
+				let hourHeader = document.createElement("th");
+				let tierHeader = document.createElement("th");
+				let subteamHeader = document.createElement("th");
+
+				nameHeader.innerHTML = "Name";
+				IDHeader.innerHTML = "ID Number";
+				hourHeader.innerHTML = "Hours";
+				tierHeader.innerHTML = "Tier";
+				subteamHeader.innerHTML = "Subteam";
+
+
+				//Add header to header row, and add header row to table
+				tableRow.appendChild(nameHeader);
+				tableRow.appendChild(IDHeader);
+				tableRow.appendChild(hourHeader);
+				tableRow.appendChild(tierHeader);
+				tableRow.appendChild(subteamHeader);
+				table.appendChild(tableRow);
+				table.cellSpacing = 0;
+
+				//Create this row of the table
+				let tableRow2 = document.createElement("tr");
+				let name = document.createElement("td");
+				let ID = document.createElement("td");
+				let hours = document.createElement("td");
+				let tier = document.createElement("td");
+				let subteam = document.createElement("td");
+
+				//Set table values
+				name.innerHTML = member.name;
+				ID.innerHTML = document.getElementById("id_box").value;
+				hours.innerHTML = member.hours;
+				tier.innerHTML = member.tier;
+				subteam.innerHTML = member.subteam;
+
+				//Add columns to row
+				tableRow2.appendChild(name);
+				tableRow2.appendChild(ID);
+				tableRow2.appendChild(hours);
+				tableRow2.appendChild(tier);
+				tableRow2.appendChild(subteam);
+				tableRow2.ID = member.ID;
+
+				table.appendChild(tableRow2);
+
+				//Add table to body
+				body.appendChild(table);
+			}
+
+			function init()
+			{
+				//Remove the data from last search
+				let parent = document.getElementById("mainContent");
+				while(parent.firstChild)
+				{
+					parent.removeChild(parent.firstChild);
+				}
+			}
+
+
+		</script>
+	</body>
+</html>

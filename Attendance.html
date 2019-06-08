@@ -3,7 +3,6 @@
 	<head>
 		<title>Attendance Program</title>
 		<style>
-		
 		/*Centers items horizontally*/
 		h3 {
 			text-align:center;
@@ -37,6 +36,7 @@
     		text-align: center;
 			border-radius: 4px;
 		}
+
 		</style>
 	</head>
 	<body>
@@ -46,14 +46,8 @@
 		<div id="formBox">
 			<h1>Enter ID Number</h1>
 			<input class="field" type="number" name="ID" id="IDBox" />
-			<br />	
-			<br />
-			<!-- Uncomment this for preseason... comment the checkbox out for build season bc there is no team building. Also uncomment the checkbox code in the javascript-->
-			<!--<input class="checkbox" type="checkbox" name="teamBuild" id="teamBuild" />
-			<span>Team Building</span>-->
 			
 			<div id="buttonContainer">
-				<br />
 				<br />
 				<!-- Check in and Check out buttons -->
 				<input type="button" name="CheckIn" value="Check In" onclick="checkIn()"/>
@@ -84,11 +78,11 @@
 			  * @author Matthew Walowski
 			  */
 
-			//var SEASON = "preseason"; //COMMENT OUT THIS LINE DURING BUILD SEASON
-			//var SEASON_SUFFIX = "Pre"; //COMMENT OUT THIS LINE DURING BUILD SEASON
+			var SEASON = "preseason"; //COMMENT OUT THIS LINE DURING BUILD SEASON
+			var SEASON_SUFFIX = "Pre"; //COMMENT OUT THIS LINE DURING BUILD SEASON
 			
-			var SEASON = "buildSeason"; //COMMENT OUT THIS LINE DURING PRESEASON
-			var SEASON_SUFFIX = "Build"; //COMMENT OUT THIS LINE DURING PRESEASON
+			//var SEASON = "buildSeason"; //COMMENT OUT THIS LINE DURING PRESEASON
+			//var SEASON_SUFFIX = "Build"; //COMMENT OUT THIS LINE DURING PRESEASON
 
 			// Initialize Firebase
 			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
@@ -123,7 +117,6 @@
 			var signOutMessage;
 			var error;
 			var hours;
-			var teambuilding;
 			
 			/** This function is called to check in the user.
 			  */
@@ -154,10 +147,7 @@
 				hours = 0;
 				
 				//Get the ID from the input box
-			    	ID = document.getElementById("IDBox").value;
-				// CHECKBOX Code, Uncomment for preseason, comment out for build season
-				//teambuilding = document.getElementById("teamBuild").checked;
-				teambuilding = false;
+			    ID = document.getElementById("IDBox").value;
 
 			    //Init references to endpoints
 			    recordRef = database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID);
@@ -334,8 +324,7 @@
 					//Put the users check-in time for today's entry.
 					database.ref("record" + SEASON_SUFFIX.toString() + "/" + ID + "/" + daysAttended.toString()).set(
 					{
-						//If they were at teambuilding, give extra 30 minutes
-						timeIn: [teambuilding ? timestamp - 1800 : timestamp],
+						timeIn: timestamp,
 						timeOut: 0,
 						duration: 0
 					});
@@ -351,7 +340,6 @@
 						daysAttended: daysAttendedRef
 					});
 					alert("You have been checked in.");
-					document.getElementById("IDBox").value = '';
 				});
 			}
 
@@ -573,7 +561,6 @@
 					
 					//Finally the member is signed out, send them their message	
 					alert(signOutMessage);					
-					document.getElementById("IDBox").value = '';
 				});
 			}
 
@@ -643,5 +630,5 @@
 			}
 		</script>
 		
-	<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_medium=website_attendence-program&amp;utm_content=footer_img"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png"  alt="www.000webhost.com"></a></div></body>
+	</body>
 </html>
