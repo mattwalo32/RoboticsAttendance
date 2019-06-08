@@ -52,23 +52,12 @@
 		</div>
 
 		<script src="https://www.gstatic.com/firebasejs/5.0.4/firebase.js"></script>
+		<script type="text/javascript" src="InitFirebase.js"></script>
 		<script>
 			/**
 			  *
 			  * @author Matthew Walowski
 			  */
-
-			// Initialize Firebase
-			//THIS CONFIG VARIABLE SHOULD BE CHANGED IF CHANGING FIREBASE ACCOUNTS TO LINK TO
-			var config = {
-				apiKey: "AIzaSyD5eHK1aPWkkI30DCIAMXYknPBGLIxjsJM",
-				authDomain: "trident-robotics-attendance.firebaseapp.com",
-				databaseURL: "https://trident-robotics-attendance.firebaseio.com",
-				projectId: "trident-robotics-attendance",
-				storageBucket: "trident-robotics-attendance.appspot.com",
-				messagingSenderId: "609506036733"
-			};
-			firebase.initializeApp(config);
 			
 			//Get reference to database
 			var database = firebase.database();
